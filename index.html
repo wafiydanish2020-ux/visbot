@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VisBot Chat</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f7f7f7;
+}
+
+/* Loading screen */
+#loadingScreen {
+  position: fixed;
+  top:0; left:0;
+  width:100%; height:100%;
+  background:#1e1e1e;
+  color:#fff;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  font-size:24px;
+  z-index:9999;
+  opacity:1;
+  transition: opacity 0.8s ease;
+}
+
+#loadingScreen img {
+  width:80px;
+  margin-bottom:20px;
+}
+
+/* Chat app container */
+.container {
+  display:flex;
+  flex-direction:column;
+  height:100%;
+  background:#fff;
+}
+
+/* Header */
+.header {
+  background:#1e1e1e;
+  color:#fff;
+  padding:15px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.header button {
+  background:#fff;
+  color:#1e1e1e;
+  border:none;
+  padding:5px 10px;
+  cursor:pointer;
+  border-radius:5px;
+  display:flex;
+  align-items:center;
+  gap:5px;
+}
+
+/* Chat container */
+.chat-container {
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  padding:10px;
+  overflow-y:auto;
+  scroll-behavior:smooth;
+  background:#f7f7f7;
+}
+
+/* Messages */
+.message {
+  max-width:70%;
+  margin:5px 0;
+  padding:10px;
+  border-radius:15px;
+  word-wrap:break-word;
+  opacity:0;
+  transform:translateY(20px);
+  animation: slideUp 0.3s forwards;
+}
+
+@keyframes slideUp {
+  to { transform:translateY(0); opacity:1; }
+}
+
+.message.user {
+  background:#0078d4;
+  color:#fff;
+  align-self:flex-end;
+  border-bottom-right-radius:0;
+  box-shadow:0 2px 4px rgba(0,0,0,0.2);
+}
+
+.message.ai {
+  background:#e0e0e0;
+  color:#000;
+  align-self:flex-start;
+  border-bottom-left-radius:0;
+  position:relative;
+  font-weight: bold;
+}
+
+/* Typing bubble animasi ... */
+.typing-bubble {
+  font-weight:bold;
+  font-size:18px;
+  display:inline-block;
+  animation: zoom 0.6s infinite alternate;
+}
+
+@keyframes zoom {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.4); }
+  100% { transform: scale(1); }
+}
+
+/* Input area */
+.input-area {
+  display:flex;
+  padding:10px;
+  background:#fff;
+  border-top:1px solid #ddd;
+}
+.input-area input {
+  flex:1;
+  padding:10px;
+  font-size:16px;
+  border:1px solid #ccc;
+  border-radius:5px;
+}
+.input-area input:focus {
+  border:2px solid #0078d4;
+  outline:none;
+  transition:border 0.3s;
+}
+.input-area button {
+  padding:10px 15px;
+  margin-left:5px;
+  cursor:pointer;
+  border:none;
+  background:#0078d4;
+  color:#fff;
+  border-radius:5px;
+  display:flex;
+  align-items:center;
+  gap:5px;
+}
+</style>
+</head>
+<body>
+
+<!-- Loading Screen -->
+<div id="loadingScreen">
+  <img src="https://cdn-icons-png.flaticon.com/512/4712/4712017.png" alt="VisBot Logo">
+  Loading VisBot...
+</div>
+
+<div class="container" id="chatApp" style="display:none;">
+  <div class="header">
+    <button id="newTopic"><i class="fas fa-redo"></i> New Topic</button>
+    <div>VisBot <i class="fas fa-robot"></i></div>
+  </div>
+  <div class="chat-container" id="chat"></div>
+  <div class="input-area">
+    <input type="text" id="input" placeholder="Ketik pesan...">
+    <button id="sendBtn"><i class="fas fa-paper-plane"></i> Kirim</button>
+  </div>
+</div>
+
+<script>
+let chat = document.getElementById('chat');
+let input = document.getElementById('input');
+let sendBtn = document.getElementById('sendBtn');
+let newTopicBtn = document.getElementById('newTopic');
+
+// Rule-based AI fleksibel
+let rules = [
+  { keywords:["halo","hi","hallo","hey"], reply:"Halo! 🗿" },
+  { keywords:["siapa","kamu"], reply:"Aku VisBot, ai ringan yang kadang error 🗿" },
+  { keywords:["🙂"], reply:"Anda baru saja pake emoji ini 🗿" },
+  { keywords:["tentang","mau tau versi","versi"], reply:"Selamat datang di pertentangan karna kami membuat chatbot rule based agar bisa kirim tanpa perlu ini dan apa kalian ingin nulis sebanyaknya akan kami tolong untuk isinya oke (version:1.0)(device: vivo y55)(country: malay)(made by: azrul)" },
+  { keywords:["ohh"], reply:"yah begitu lah kalo ada mau hal lain ceritain aja" },
+  { keywords:["umur","berapakah umurmu"], reply:"gw gak memiliki umur tapi gw hanya bisa ngobrol sama kamu" },
+  { keywords:["huh?","hah?","apa"], reply:"oh maap kalo membuatmu bingung sekali lagi pembuatku akan menambah banyak kata ladi,ditunggu aja😅🙏" },
+  { keywords:["anj*","anjing"], reply:"gw bingung lu maksudin apa,apa kucing sama anjing atau lu ngomong kasar??" },
+];
+
+function getResponse(userInput){
+    userInput = userInput.toLowerCase();
+    for(let rule of rules){
+        for(let kw of rule.keywords){
+            if(userInput.includes(kw)) return rule.reply;
+        }
+    }
+    // variasi jawaban default
+    let fallback = ["Aku nggak ngerti 🗿", "Aku nggak paham 🗿", "tolong jelasin lebih jelas", "oops kayaknya pembuatku gak ini untuk variasinya jadi bisa ditunggu untuk dia selesaikan ribuan kata kunci" ];
+    return fallback[Math.floor(Math.random() * fallback.length)];
+}
+
+// Fungsi menambah pesan
+function addMessage(text, type){
+    let msg = document.createElement('div');
+    msg.className = 'message ' + type;
+    msg.textContent = text;
+    chat.appendChild(msg);
+    chat.scrollTop = chat.scrollHeight;
+}
+
+// Fungsi AI typing animasi ... tebal + zoom in/out, 3 kali
+function createTypingBubble(callback){
+    let bubble = document.createElement('div');
+    bubble.className='message ai';
+    chat.appendChild(bubble);
+    chat.scrollTop = chat.scrollHeight;
+
+    let step = 0; // titik
+    let repeat = 0; // jumlah animasi
+    let interval = setInterval(()=>{
+        step = (step+1)%4;
+        bubble.innerHTML='<span class="typing-bubble">'+'.'.repeat(step)+'</span>';
+        if(step===0) repeat++;
+        if(repeat>=3){ // sudah 3 kali animasi
+            clearInterval(interval);
+            callback(bubble);
+        }
+    },300);
+}
+
+// Fungsi kirim pesan
+function sendMessage(){
+    let text = input.value.trim();
+    if(!text) return;
+    addMessage(text,'user');
+    input.value='';
+
+    createTypingBubble((bubble)=>{
+        let response = getResponse(text);
+        bubble.textContent = response;
+        chat.scrollTop = chat.scrollHeight;
+    });
+}
+
+sendBtn.addEventListener('click',sendMessage);
+input.addEventListener('keypress',function(e){
+    if(e.key==='Enter') sendMessage();
+});
+
+newTopicBtn.addEventListener('click',function(){
+    chat.innerHTML='';
+    addMessage("New topic dimulai 🗿",'ai');
+});
+
+// Loading screen fade + AI awal
+window.onload=function(){
+    setTimeout(()=>{
+        document.getElementById('loadingScreen').style.opacity='0';
+        setTimeout(()=>{
+            document.getElementById('loadingScreen').style.display='none';
+            document.getElementById('chatApp').style.display='flex';
+            addMessage("Halo! Aku VisBot, siap ngobrol 🗿",'ai');
+        },800);
+    },1500);
+};
+</script>
+
+</body>
+</html>
